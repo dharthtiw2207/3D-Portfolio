@@ -1,5 +1,5 @@
-import { Suspense, useRef, useState } from "react";
-import emailjs from "@emailjs/browser";
+import { Suspense, useRef, useState, useCallback } from "react";
+import axios from "axios"; // Ensure axios is imported
 import { Canvas } from "@react-three/fiber";
 import Fox from "../Models/Fox";
 import Loader from "../Components/Loader";
@@ -14,55 +14,56 @@ const Contact = () => {
 
   const { alert, showAlert, hideAlert } = useAlert();
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = useCallback((e) => {
+    setForm((prevForm) => ({ ...prevForm, [e.target.name]: e.target.value }));
+  }, []);
 
-  const handleSubmit = (e) => {
+  const handleFocus = useCallback(() => setCurrentAnimation("walk"), []);
+  const handleBlur = useCallback(() => setCurrentAnimation("idle"), []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setCurrentAnimation("hit");
 
-    emailjs
-      .send(
-        import.meta.env.VITE_APP_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_APP_EMAILJS_TEMPLATE_ID,
-        {
-          from_name: form.name,
-          to_name: "Siddhartha Tiwari",
-          from_email: form.email,
-          to_email: "darthtiw1722@gmail.com",
-          message: form.message,
-        },
-        import.meta.env.VITE_APP_EMAILJS_PUBLIC_KEY
-      )
-      .then(() => {
-        setIsLoading(false);
-        showAlert({
-          show: true,
-          text: "Message sent successfully!",
-          type: "success",
-        });
+    const serviceId = "service_67vep3n";
+    const templateId = "template_u39ca6b";
+    const publicKey = "LgJvRXiMjHl5kiiTT";
 
-        setTimeout(() => {
-          hideAlert();
-          setCurrentAnimation("idle");
-          setForm({ name: "", email: "", message: "" });
-        }, 3000);
-      })
-      .catch(() => {
-        setIsLoading(false);
-        setCurrentAnimation("idle");
-        showAlert({
-          show: true,
-          text: "I didn't receive your message",
-          type: "danger",
-        });
-      });
-  };
+    const { name, email, message } = form;
 
-  const handleFocus = () => setCurrentAnimation("walk");
-  const handleBlur = () => setCurrentAnimation("idle");
+    const data = {
+      service_id: serviceId,
+      template_id: templateId,
+      user_id: publicKey,
+      template_params: {
+        from_name: name,
+        from_email: email,
+        to_name: "Siddhartha Tiwari",
+        message: message,
+      },
+    };
+
+    try {
+      const res = await axios.post(
+        "https://api.emailjs.com/api/v1.0/email/send",
+        data
+      );
+
+      if (res.status >= 200 && res.status < 300) {
+        setForm({ name: "", email: "", message: "" });
+        showAlert("Message sent successfully!", "success");
+      } else {
+        showAlert("Failed to send message. Please try again later.", "danger");
+      }
+    } catch (error) {
+      console.error(error);
+      showAlert("Failed to send message. Please try again later.", "danger");
+    } finally {
+      setIsLoading(false);
+      setCurrentAnimation("idle");
+    }
+};
 
   return (
     <section className="relative flex lg:flex-row flex-col max-container bg-gray-900 text-gray-100">
